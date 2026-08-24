@@ -4,7 +4,7 @@ Codespaces
 # Intro to Docker
 
 ## To run a standalone docker (no bash/terminal)
-`docker run hello-world` 
+```docker run hello-world```
 
 ## To run with interactive bash
 `docker run -it \
