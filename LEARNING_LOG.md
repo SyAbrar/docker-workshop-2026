@@ -1,3 +1,5 @@
+# 01 - Introduction 
+
 Oct 5 2026
 
 ### MANAGE VIEW OF CONTAINER
@@ -44,4 +46,34 @@ for filepath in current_dir.iterdir():
 
 ```
 
-Docker command that 
+Oct 14
+
+### Docker command that runs container and maps volume
+```
+docker run -it \
+    --rm \
+    -v $(pwd)/test:/app/test \
+    --entrypoint=bash \
+    python:3.9.16-slim
+
+```
+
+### then inside the container run this
+```
+cd /app/test
+ls -la
+cat file1.txt
+python list_files.py
+```
+
+# 02 - Virtual Environment
+
+we'll build a pipelines that:
+
+    Download CSV data from the web
+    Transform and clean the data with pandas
+    Load it into PostgreSQL for querying
+    Process data in chunks to handle large files
+
+### 
+
