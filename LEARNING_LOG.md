@@ -135,3 +135,155 @@ the script produces a binary (parquet) file, make sure to add the below in `.git
 ```
 *.parquet
 ```
+Oct 28
+
+# 03 - Dockerizing the Pipeline
+Let us containerize the script. Create the following `Dockerfile` file:
+
+```
+# base Docker image that we will build on
+FROM python:3.13.11-slim
+
+# set up our image by installing prerequisites; pandas in this case
+RUN pip install pandas pyarrow
+
+# set up the working directory inside the container
+WORKDIR /app
+# copy the script to the container. 1st name is source file, 2nd is destination
+COPY pipeline.py pipeline.py
+
+# define what to do first when the container runs
+# in this example, we will just run the script
+ENTRYPOINT ["python", "pipeline.py"]
+```
+Explanation:
+
+- `FROM`: Base image (Python 3.13)
+- `RUN`: Execute commands during build
+- `WORKDIR`: Set working directory
+- `COPY`: Copy files into the image
+- `ENTRYPOINT`: Default command to run
+
+#### Build and Run
+```
+docker build -t test:pandas .
+```
+- The image name will be `test` and its tag will be `pandas`. If a tag isn't specified, it will default to `latest`.
+
+We can now run the container and pass an argument, so that our pipeline will receive it
+```
+docker run -it test:pandas <some_number>
+```
+#### It should return the same output as before
+
+### Dockerfile with uv
+An alternative to using `pip` in the previous `Dockerfile`:
+```
+# Start with slim Python 3.13 image
+FROM python:3.13.10-slim
+
+# Copy uv binary from official uv image (multi-stage build pattern)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+
+# Set working directory
+WORKDIR /app
+
+# Add virtual environment to PATH so we can use installed packages
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Copy dependency files first (better layer caching)
+COPY "pyproject.toml" "uv.lock" ".python-version" ./
+# Install dependencies from lock file (ensures reproducible builds)
+RUN uv sync --locked
+
+# Copy application code
+COPY pipeline.py pipeline.py
+
+# Set entry point
+ENTRYPOINT ["uv", "run", "python", "pipeline.py"]
+```
+
+# 04 - Running PostgreSQL with Docker
+
+Create a folder where you'd like Postgres to stroe data in. We will use this example folder `ny_taxi_postgres_data`. Here's how to run the container:
+
+```
+docker run -it --rm \
+  -e POSTGRES_USER="root" \
+  -e POSTGRES_PASSWORD="root" \
+  -e POSTGRES_DB="ny_taxi" \
+  -v ny_taxi_postgres_data:/var/lib/postgresql \
+  -p 5432:5432 \
+  postgres:18
+```
+#### Explanation of Parameters
+- `-e` sets environment variables (user, password, database name)
+- `-v` ny_taxi_postgres_data:/var/lib/postgresql creates a named volume
+  - Docker manages this volume automatically
+  - Data persists even after container is removed
+  - Volume is stored in Docker's internal storage
+- `-p 5432:5432` maps port 5432 from container to host
+- `postgres:18` uses PostgreSQL version 18 (latest as of Dec 2025)
+
+#### Alternative Approach - Bind Mount
+First create the directory, then map it:
+
+```
+mkdir ny_taxi_postgres_data
+
+docker run -it \
+  -e POSTGRES_USER="root" \
+  -e POSTGRES_PASSWORD="root" \
+  -e POSTGRES_DB="ny_taxi" \
+  -v $(pwd)/ny_taxi_postgres_data:/var/lib/postgresql \
+  -p 5432:5432 \
+  postgres:18
+```
+#### Named Volume vs Bind Mount
+- Named volume (name:/path): Managed by Docker, easier
+- Bind mount (/host/path:/container/path): Direct mapping to host filesystem, more control
+
+### Connecting to PostgreSQL
+
+Once the container is running, we can log into the database using pgcli
+
+Install pgcli
+```
+uv add --dev pgcli
+```
+
+The `--dev` flag marks it as a developement dependency (no need in prod). It will be added to the `[dependency-groups]` section of `pyproject.toml` instead of the main `dependencies` section.
+
+Now use it to connect to Postgres:
+```
+uv run pgcli -h localhost -p 5432 -u root -d ny_taxi
+```
+
+- `uv` run executes a command in the context of the virtual environment
+- `-h` is the host. Since we're running locally we can use localhost.
+- `-p` is the port.
+- `-u` is the username.
+- `-d` is the database name.
+- The password is not provided; it will be requested after running the command.
+
+When prompted, enter the password: `root`
+
+### Basic SQL
+Try in Postgres:
+
+```
+-- List tables
+\dt
+
+-- Create a test table
+CREATE TABLE test (id INTEGER, name VARCHAR(50));
+
+-- Insert data
+INSERT INTO test VALUES (1, 'Hello Docker');
+
+-- Query data
+SELECT * FROM test;
+
+-- Exit
+\q
+```
