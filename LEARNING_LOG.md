@@ -68,6 +68,8 @@ python list_files.py
 
 # 02 - Virtual Environment
 
+DIAGRAM INSERT HERE
+
 we'll build a pipelines that:
 
     Download CSV data from the web
@@ -75,5 +77,61 @@ we'll build a pipelines that:
     Load it into PostgreSQL for querying
     Process data in chunks to handle large files
 
-### 
+### Creating simple pipeline
 
+create an example pipeline. First, create a directory `pipeline` and inside, create a file `pipeline.py`:
+
+Below is script for `pipeline.py`
+```
+import sys
+import pandas as pd
+
+print("arguments", sys.argv)
+
+day = int(sys.argv[1])
+
+df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+print(df.head())
+
+df.to_parquet(f"output_day_{sys.argv[1]}.parquet")
+
+print(f"Running pipeline for day {day}")
+
+```
+
+### Using uv - Modern Pythin Package Manager
+
+```
+pip install uv
+```
+
+#### Now initializw a Python project with uv:
+```
+uv init --python=3.13
+```
+This will create pyproject.toml file for managing dependecies and a `.python-version` file.
+
+#### Adding Dependencies
+This will add the below to `project.toml`
+```
+uv add pandas pyarrow
+```
+
+### Running pipeline 
+```
+uv run python pipeline.py
+```
+Output is:
+```
+arguments ['pipeline.py', '10']
+   A  B
+0  1  3
+1  2  4
+Running pipeline for day 10
+```
+
+### Git config
+the script produces a binary (parquet) file, make sure to add the below in `.gitignore` so we dont commit the output file
+```
+*.parquet
+```
